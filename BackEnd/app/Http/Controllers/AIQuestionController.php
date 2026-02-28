@@ -20,11 +20,8 @@ class AIQuestionController extends Controller
             'numLevels'     => 'required|integer|min:1|max:6',
             'level_types'   => 'required|array',
             'level_types.*' => 'required|in:box,balloon',
-            'ai_prompt'     => 'required|string|max:5000',
-            'attachment_id' => 'nullable|string',
-            'pdf_text'      => 'nullable|string',
-            'links'         => 'nullable|array',
-            'links.*'       => 'nullable|string'
+            'ai_prompt'     => 'required|string|max:1000',
+            'source_text'   => 'nullable|string|max:8000', // Optional extracted text from file/URL
         ]);
 
         if (count($validated['level_types']) !== $validated['numLevels']) {
@@ -51,29 +48,32 @@ class AIQuestionController extends Controller
             }
         }
 
-        // ===== NEW: Build enhanced prompt with PDF content and links =====
-        $userPromptBase = "
+       // Build the source text injection (if provided)
+        $sourceTextSection = '';
+        if (!empty($validated['source_text'])) {
+            $sourceTextSection = "
+=== TEXTE SOURCE (CONTENU DU COURS) ===
+{$validated['source_text']}
+=== FIN DU TEXTE SOURCE ===
+
+INSTRUCTIONS STRICTES POUR LE TEXTE SOURCE :
+- Tu DOIS baser tes questions UNIQUEMENT sur le contenu réel du texte source ci-dessus.
+- Les questions doivent porter sur les CONCEPTS, les RÈGLES, les EXEMPLES et les FAITS présents dans ce texte.
+- Il est INTERDIT de poser des questions sur le titre de la vidéo/document, le nom de l'auteur, le niveau mentionné dans le titre, ou toute autre métadonnée.
+- Il est INTERDIT de faire référence à \"la vidéo\", \"le titre\", \"le document\" ou \"le texte\" dans les questions. Formule les questions directement sur le savoir, comme si c'était le prof qui interroge l'élève après le cours.
+- Exemple INTERDIT : \"Qu'est-ce qui est mentionné dans le titre ?\", \"Quel niveau est cité dans la vidéo ?\"
+- Exemple CORRECT : \"Combien font 3/4 + 1/4 ?\", \"Quelle fraction est équivalente à 1/2 ?\"
+";
+        }
+
+       $userPrompt = "
+{$sourceTextSection}
 Le professeur demande : \"{$validated['ai_prompt']}\"
 
 INFORMATIONS :
 Cours : {$validated['course']}
-Sujet : {$validated['topic']}";
+Sujet : {$validated['topic']}
 
-        // Add PDF content if provided
-        if (!empty($validated['pdf_text'])) {
-            \Log::info('📄 [AIQuestion] Adding PDF content to prompt');
-            $pdfPreview = mb_strimwidth($validated['pdf_text'], 0, 2000, '...');
-            $userPromptBase .= "\n\n📄 DOCUMENT DE RÉFÉRENCE (PDF) :\n" . $pdfPreview . "\n\nBase-toi sur ce document pour générer les questions pertinentes.";
-        }
-
-        // Add links if provided
-        if (!empty($validated['links'])) {
-            \Log::info('🔗 [AIQuestion] Adding links to prompt. Count: ' . count($validated['links']));
-            $linksText = implode("\n", array_map(fn($link, $i) => ($i + 1) . ". " . $link, $validated['links'], array_keys($validated['links'])));
-            $userPromptBase .= "\n\n🔗 RESSOURCES DE RÉFÉRENCE :\n" . $linksText . "\n\nConsulte ces ressources pour créer des questions pertinentes et actualisées.";
-        }
-
-       $userPrompt = $userPromptBase . "
 GÉNÈRE EXACTEMENT {$numLevels} NIVEAUX :
 {$levelsDescription}
 
@@ -151,7 +151,7 @@ Génère maintenant les {$numLevels} niveaux demandés en suivant EXACTEMENT ce 
         ";
 
         try {
-            $apiKey = env('GROQ_API_KEY');
+            $apiKey = config('services.groq.api_key');
             
             if (!$apiKey) {
                 \Log::warning('⚠️ GROQ_API_KEY is missing. Using fallback mock data.');
@@ -252,9 +252,39 @@ Génère maintenant les {$numLevels} niveaux demandés en suivant EXACTEMENT ce 
 
     private function getMockBulkData(array $validated): \Illuminate\Http\JsonResponse
     {
+        $promptSnippet = substr($validated['ai_prompt'] ?? '', 0, 50);
+        \Log::info("🔧 [AIQuestion] using mock data with prompt snippet: {$promptSnippet}");
+
         $levels = [];
         for ($i = 0; $i < $validated['numLevels']; $i++) {
             $type = $validated['level_types'][$i];
+            if ($type === 'box') {
+                // create questions that incorporate the prompt snippet
+                $questions = [];
+                for ($q = 1; $q <= 5; $q++) {
+                    $questions[] = [
+                        'text' => "MOCK Q{$q} about '{$promptSnippet}'",
+                        'answer' => (string)($q * 2),
+                    ];
+                }
+            } else {
+                $questions = null;
+            }
+
+            $balloonQuestion = $type === 'balloon' ? "MOCK balloon question about '{$promptSnippet}'" : null;
+            $balloonAnswers = $type === 'balloon' ? [
+                ['text' => 'Option A', 'is_true' => true],
+                ['text' => 'Option B', 'is_true' => false],
+                ['text' => 'Option C', 'is_true' => false],
+                ['text' => 'Option D', 'is_true' => false],
+                ['text' => 'Option E', 'is_true' => false],
+                ['text' => 'Option F', 'is_true' => false],
+                ['text' => 'Option G', 'is_true' => false],
+                ['text' => 'Option H', 'is_true' => false],
+                ['text' => 'Option I', 'is_true' => false],
+                ['text' => 'Option J', 'is_true' => false],
+            ] : null;
+
             $levels[] = [
                 'level_number' => $i + 1,
                 'level_type' => $type,
@@ -265,28 +295,11 @@ Génère maintenant les {$numLevels} niveaux demandés en suivant EXACTEMENT ce 
                     'stars' => 1,
                     'time_spent' => 0
                 ],
-                'questions' => $type === 'box' ? [
-                    ['text' => 'MOCK 1+1 ?', 'answer' => '2'],
-                    ['text' => 'MOCK 2+2 ?', 'answer' => '4'],
-                    ['text' => 'MOCK 3+3 ?', 'answer' => '6'],
-                    ['text' => 'MOCK 4+4 ?', 'answer' => '8'],
-                    ['text' => 'MOCK 5+5 ?', 'answer' => '10'],
-                ] : null,
-                'question' => $type === 'balloon' ? 'MOCK Quelle fraction représente la moitié ?' : null,
-                'answers' => $type === 'balloon' ? [
-                    ['text' => '1/2', 'is_true' => true],
-                    ['text' => '1/3', 'is_true' => false],
-                    ['text' => '2/4', 'is_true' => true],
-                    ['text' => '1/5', 'is_true' => false],
-                    ['text' => '2/5', 'is_true' => false],
-                    ['text' => '3/5', 'is_true' => false],
-                    ['text' => '4/5', 'is_true' => false],
-                    ['text' => '1/6', 'is_true' => false],
-                    ['text' => '2/6', 'is_true' => false],
-                    ['text' => '3/6', 'is_true' => true],
-                ] : null,
+                'questions' => $questions,
+                'question' => $balloonQuestion,
+                'answers' => $balloonAnswers,
             ];
-            
+
             // Cleanup nulls so json is clean
             $levels[$i] = array_filter($levels[$i], function($value) { return $value !== null; });
         }

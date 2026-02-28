@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
+import { api } from "../utils/api"; // use authenticated instance
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Eye,
@@ -114,27 +115,28 @@ const Game = () => {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
       const userId = user?.id;
-      const jsonData = JSON.stringify(
-        { ...editedGame, game_id: game_id, user_id: userId },
-        null,
-        2
-      );
-      const response = await axios.post(`${apiUrl}game`, jsonData, {
+      const payload = { ...editedGame, game_id: game_id, user_id: userId };
+
+      const response = await api.post(`/export-quiz-zip`, payload, {
+        responseType: "blob",
         headers: {
           "Content-Type": "application/json",
         },
       });
 
-      if (response.status === 200) {
-        notification.success(t("game_exported_successfully"));
-        console.log(JSON.stringify(response.data, null, 2));
-      } else {
-        notification.error(
-          t("failed_to_send_game_data") || "Failed to send game data"
-        );
-      }
+      const blob = new Blob([response.data], { type: "application/zip" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const ts = new Date().toISOString().split(".")[0].replace(/:/g, "-");
+      link.href = url;
+      link.setAttribute("download", `scorm_quiz_${ts}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      notification.success(t("game_exported_successfully") || "Quiz exported");
     } catch (error) {
-      notification.error(t("failed_to_export_game") || "Failed to export game");
+      notification.error(t("failed_to_export_game") || "Failed to export quiz");
       console.error("Export error:", error);
     }
   };
@@ -422,7 +424,7 @@ const Game = () => {
                             index,
                             0,
                             "question",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                         className="input-field mb-4 w-full px-3 py-2 border border-purple-light/30 rounded-lg focus:ring-2 focus:ring-purple-main focus:border-transparent dark:bg-gray-800 dark:text-white dark:border-gray-700"
@@ -461,7 +463,7 @@ const Game = () => {
                                   index,
                                   aIndex,
                                   "answer",
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               className="input-field w-full px-3 py-2 border border-purple-light/30 rounded-lg focus:ring-2 focus:ring-purple-main focus:border-transparent dark:bg-gray-800 dark:text-white dark:border-gray-700"
@@ -479,7 +481,7 @@ const Game = () => {
                                   index,
                                   aIndex,
                                   "is_true",
-                                  !answer.is_true
+                                  !answer.is_true,
                                 );
                               }
                             }}
@@ -539,7 +541,7 @@ const Game = () => {
                                       index,
                                       qIndex,
                                       "text",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   className="input-field w-full px-3 py-2 border border-purple-light/30 rounded-lg focus:ring-2 focus:ring-purple-main focus:border-transparent dark:bg-gray-800 dark:text-white dark:border-gray-700"
@@ -553,7 +555,7 @@ const Game = () => {
                                       index,
                                       qIndex,
                                       "answer",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   className="input-field w-full px-3 py-2 border border-purple-light/30 rounded-lg focus:ring-2 focus:ring-purple-main focus:border-transparent dark:bg-gray-800 dark:text-white dark:border-gray-700"

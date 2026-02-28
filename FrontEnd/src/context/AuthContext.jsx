@@ -27,25 +27,20 @@ export function AuthProvider({ children }) {
       const storedRememberMe = localStorage.getItem("rememberMe");
       const localStoredUser = localStorage.getItem("user");
       const localStoredToken = localStorage.getItem("token");
-
+      
       // Then check sessionStorage (for non-remembered logins)
       const sessionUser = sessionStorage.getItem("user");
       const sessionToken = sessionStorage.getItem("token");
-
+      
       // Prioritize using the authentication data based on "Remember me" setting
-      const storedUser = storedRememberMe
-        ? localStoredUser
-        : sessionUser || localStoredUser;
-      const storedToken = storedRememberMe
-        ? localStoredToken
-        : sessionToken || localStoredToken;
+      const storedUser = storedRememberMe ? localStoredUser : (sessionUser || localStoredUser);
+      const storedToken = storedRememberMe ? localStoredToken : (sessionToken || localStoredToken);
 
       if (storedUser && storedToken) {
         try {
           // Parse user from storage
           const userData = JSON.parse(storedUser);
           setUser(userData);
-          setIsAuthenticated(true); // ✅ LIGNE 1 AJOUTÉE ICI
 
           // Set profile image from stored user data
           if (userData.profile_image) {
@@ -67,6 +62,7 @@ export function AuthProvider({ children }) {
           // Update with fresh data from API
           const freshUserData = response.data;
           setUser(freshUserData);
+          
           // Save user data to appropriate storage based on "Remember me" setting
           if (storedRememberMe) {
             localStorage.setItem("user", JSON.stringify(freshUserData));
@@ -93,13 +89,11 @@ export function AuthProvider({ children }) {
           sessionStorage.removeItem("token");
           setUser(null);
           setProfileImage(null);
-          setIsAuthenticated(false); // ✅ LIGNE 2 AJOUTÉE ICI
         } finally {
           setUserLoading(false);
         }
       } else {
         setUserLoading(false);
-        setIsAuthenticated(false); // ✅ LIGNE 3 AJOUTÉE ICI
       }
     };
 
@@ -146,30 +140,21 @@ export function AuthProvider({ children }) {
       const response = await axios.post(`${apiUrl}login`, credentials);
       const { user, token } = response.data;
 
-      // ✅ CHANGÉ : Utilise sessionStorage
-      sessionStorage.setItem("token", token);
-      sessionStorage.setItem("user", JSON.stringify(user));
-
-      // Clear localStorage pour éviter conflits
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("rememberMe");
-
       // Set the token in local storage
-      // localStorage.setItem("token", token);
+      localStorage.setItem("token", token);
 
       // Save user data to local storage
-      // localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("user", JSON.stringify(user));
 
       // Set the user state
       setUser(user);
-      setIsAuthenticated(true);
 
       // Set profile image if available
       if (user.profile_image) {
         setProfileImage(user.profile_image);
       }
 
+      setIsAuthenticated(true);
       setLoading(false);
 
       return { success: true };
@@ -184,7 +169,7 @@ export function AuthProvider({ children }) {
           setError("Invalid email or password.");
         } else {
           setError(
-            error.response.data.message || "An error occurred during login.",
+            error.response.data.message || "An error occurred during login."
           );
         }
       } else {
@@ -248,7 +233,7 @@ export function AuthProvider({ children }) {
         } else {
           setError(
             error.response.data.message ||
-              "An error occurred during registration.",
+              "An error occurred during registration."
           );
         }
       } else {
@@ -262,8 +247,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     // Try to call the server logout endpoint if token exists
-    const token =
-      localStorage.getItem("token") || sessionStorage.getItem("token");
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     if (token) {
       try {
         await axios.post(
@@ -273,7 +257,7 @@ export function AuthProvider({ children }) {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          },
+          }
         );
       } catch (error) {
         // Continue with local logout even if server logout fails
@@ -286,7 +270,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("rememberMe");
     sessionStorage.removeItem("user");
     sessionStorage.removeItem("token");
-
+    
     // Reset state
     setUser(null);
     setProfileImage(null);
@@ -320,7 +304,7 @@ export function AuthProvider({ children }) {
       } else {
         console.error(
           "Profile update error: Invalid response format",
-          response.data,
+          response.data
         );
         throw new Error("Invalid server response");
       }
@@ -331,7 +315,7 @@ export function AuthProvider({ children }) {
       if (error.response) {
         if (error.response.status === 401) {
           throw new Error(
-            "You can't do modifications more than one time! Try again after 2 minutes.",
+            "You can't do modifications more than one time! Try again after 2 minutes."
           );
         } else if (error.response.status === 422) {
           const errors = error.response.data.errors;
@@ -363,7 +347,7 @@ export function AuthProvider({ children }) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-        },
+        }
       );
 
       // If the server returned a new token, update it
@@ -379,7 +363,7 @@ export function AuthProvider({ children }) {
       if (error.response) {
         if (error.response.status === 401) {
           throw new Error(
-            "You can't do modifications more than one time! Try again after 2 minutes.",
+            "You can't do modifications more than one time! Try again after 2 minutes."
           );
         } else if (error.response.status === 422) {
           const errors = error.response.data.errors;
@@ -435,7 +419,7 @@ export function AuthProvider({ children }) {
       if (imageFile.size > 2 * 1024 * 1024) {
         // Lower limit to 2MB
         throw new Error(
-          "Image size exceeds 2MB. Please select a smaller image.",
+          "Image size exceeds 2MB. Please select a smaller image."
         );
       }
 
@@ -445,8 +429,8 @@ export function AuthProvider({ children }) {
         const timeoutId = setTimeout(() => {
           reject(
             new Error(
-              "Image upload timed out. Please try again with a smaller image.",
-            ),
+              "Image upload timed out. Please try again with a smaller image."
+            )
           );
         }, 20000); // 20 seconds timeout
 
@@ -458,7 +442,7 @@ export function AuthProvider({ children }) {
             console.log(
               "Uploading profile image, size:",
               Math.round(imageUrl.length / 1024),
-              "KB",
+              "KB"
             );
 
             // If the image is too large, reject immediately
@@ -467,8 +451,8 @@ export function AuthProvider({ children }) {
               clearTimeout(timeoutId);
               reject(
                 new Error(
-                  "Image is too large after processing. Please use a smaller image.",
-                ),
+                  "Image is too large after processing. Please use a smaller image."
+                )
               );
               return;
             }
@@ -477,9 +461,7 @@ export function AuthProvider({ children }) {
             if (!imageUrl || !imageUrl.startsWith("data:image/")) {
               clearTimeout(timeoutId);
               reject(
-                new Error(
-                  "Invalid image format. Please try a different image.",
-                ),
+                new Error("Invalid image format. Please try a different image.")
               );
               return;
             }
@@ -498,7 +480,7 @@ export function AuthProvider({ children }) {
                     Authorization: `Bearer ${token}`,
                   },
                   timeout: 10000, // 10 seconds timeout for the API call
-                },
+                }
               );
 
               const updatedUser = response.data.user;
@@ -524,7 +506,7 @@ export function AuthProvider({ children }) {
                 else if (updatedUser.profile_image.startsWith("/")) {
                   const baseUrl = import.meta.env.VITE_API_URL.replace(
                     "/api/",
-                    "",
+                    ""
                   );
                   profileImageUrl = `${baseUrl}${
                     updatedUser.profile_image
@@ -553,8 +535,8 @@ export function AuthProvider({ children }) {
                   clearTimeout(timeoutId);
                   reject(
                     new Error(
-                      "You can't do modifications more than one time! Try again after 2 minutes.",
-                    ),
+                      "You can't do modifications more than one time! Try again after 2 minutes."
+                    )
                   );
                   return;
                 } else if (error.response.status === 422) {
@@ -567,7 +549,7 @@ export function AuthProvider({ children }) {
                     reject(new Error(`Validation error: ${errorMessages}`));
                   } else {
                     reject(
-                      new Error("Validation error: Please check your input."),
+                      new Error("Validation error: Please check your input.")
                     );
                   }
                   return;

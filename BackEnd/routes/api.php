@@ -7,7 +7,8 @@ use App\Http\Controllers\RemoveGameController;
 use App\Http\Controllers\GetGamesController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AIQuestionController;
-use App\Http\Controllers\AttachmentController;
+use App\Http\Controllers\SourceInputController;
+use App\Http\Controllers\ExportController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -27,11 +28,12 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 // AI Question Generator Route (Protected)
 Route::post('/generate-questions', [AIQuestionController::class, 'generateQuestions'])->middleware('auth:sanctum');
 
-// Attachment Processing Routes (Protected) - for PDF + Links handling
-Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/attachments/process', [AttachmentController::class, 'process']);
-    Route::post('/attachments/retrieve', [AttachmentController::class, 'retrieve']);
-});
+// Source Input Routes (Protected)
+Route::post('/extract-file', [SourceInputController::class, 'extractFromFile'])->middleware('auth:sanctum');
+Route::post('/extract-url',  [SourceInputController::class, 'extractFromUrl'])->middleware('auth:sanctum');
+
+// Export SCORM Route (Public - no auth required)
+Route::post('/export-quiz-zip', [ExportController::class, 'exportQuizAsZip']);
 
 // Notification Routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -63,7 +65,3 @@ Route::get('/addition/{n1?}/{n2?}', function (int $n1 = null, int $n2 = null) {
     }
 });
 */
-
-use App\Http\Controllers\ExportController;
-
-Route::post('/export-quiz-zip', [ExportController::class, 'exportQuizAsZip'])->middleware('auth:sanctum');

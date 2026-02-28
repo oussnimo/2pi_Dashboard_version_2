@@ -1,404 +1,241 @@
-# 2PI Dashboard - AI-Powered Interactive Math Quiz Platform
+# 2pi Dashboard - Interactive Math Quiz Platform
 
-A modern web application for teachers to create, manage, and export interactive math quizzes with AI-powered question generation. Supports PDF/link content integration and SCORM 1.2 package export for LMS integration.
+## Project Overview
 
-## 🎯 Key Features
+The 2pi Dashboard is an interactive web application designed to help teachers create and manage engaging math quizzes for their students. The platform consists of a React-based frontend and a Laravel-based backend API.
 
-✅ **AI Question Generator** - Generate quiz questions using Groq API with context from PDFs and external links  
-✅ **PDF & Link Processing** - Upload PDFs and add reference links for contextual question generation  
-✅ **Interactive Quiz Editor** - Create multi-level quizzes with Box (short answer) and Balloon (multiple choice) question types  
-✅ **SCORM 1.2 Export** - Export quizzes as packages compatible with Moodle, Canvas, Blackboard, and other LMS platforms  
-✅ **User Authentication** - Secure authentication with Laravel Sanctum  
-✅ **Real-time Progress Tracking** - Monitor student performance and completion status  
-✅ **Responsive Design** - Mobile-friendly interface with Tailwind CSS  
-✅ **Multi-language Support** - Internationalization ready  
-✅ **Dark/Light Theme** - Theme customization support
+### Key Features
 
-## 📋 Project Structure
+- **Quiz Creation**: Create customizable math quizzes with different question types
+- **Game Level Management**: Configure multiple levels with progressive difficulty
+- **Question Types**: Support for "box" (multiple questions) and "balloon" (single question with multiple answers) formats
+- **Student Progress Tracking**: Monitor student performance and progress
+- **User Authentication**: Secure login, registration, and profile management
+- **Internationalization**: Multi-language support
+- **Theme Customization**: Light and dark mode support
+- **Responsive Design**: Works on various device sizes
+
+## Project Structure
+
+The project is organized into two main components:
+
+### Frontend (`dashboard_adv/`)
 
 ```
-2pi-Dashboard-AI-integration-main/
-├── BackEnd/                          # Laravel API Backend
-│   ├── app/Http/Controllers/
-│   │   ├── AIQuestionController.php  # AI question generation (Groq)
-│   │   ├── AttachmentController.php  # PDF parsing & link validation
-│   │   ├── ExportController.php      # SCORM package export
-│   │   └── ...
-│   ├── config/                       # Configuration files
-│   ├── database/                     # Migrations & seeders
-│   ├── routes/api.php                # API endpoints
-│   ├── .env.example                  # Environment variables template
-│   └── composer.json
-│
-├── FrontEnd/                         # React + Vite Frontend
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── AIQuestionGenerator.jsx  # AI generation interface
-│   │   │   ├── ExportQuizDialog.jsx     # SCORM export UI
-│   │   │   └── ...
-│   │   ├── pages/
-│   │   ├── services/
-│   │   └── App.jsx
-│   ├── .env.example
-│   └── package.json
-│
-└── README.md
+dashboard_adv/
+├── public/              # Static assets
+├── src/
+│   ├── components/      # Reusable UI components
+│   ├── context/         # Context providers for state management
+│   ├── hooks/           # Custom React hooks
+│   ├── pages/           # Page-level components
+│   ├── services/        # API service functions
+│   ├── translations/    # Internationalization files
+│   ├── utils/           # Utility functions
+│   ├── App.jsx          # Main application component
+│   ├── Form.jsx         # Form handling logic
+│   ├── index.css        # Global styles
+│   └── main.jsx         # Application entry point
+├── .env                 # Environment variables
+├── package.json         # Project dependencies
+└── tailwind.config.js   # TailwindCSS configuration
 ```
 
-## 🛠️ Technology Stack
+### Backend (`2pi_Dashboard_BackEnd/`)
+
+```
+2pi_Dashboard_BackEnd/
+├── app/
+│   ├── Http/            # Controllers and middleware
+│   ├── Models/          # Database models
+│   └── Providers/       # Service providers
+├── config/              # Application configuration
+├── database/
+│   ├── migrations/      # Database migrations
+│   ├── factories/       # Model factories for testing
+│   └── seeders/         # Database seeders
+├── routes/
+│   ├── api.php          # API routes
+│   └── web.php          # Web routes
+├── .env                 # Environment variables
+└── composer.json        # PHP dependencies
+```
+
+## Technology Stack
 
 ### Frontend
 
-- **React** 18.3 + **Vite** 6.0 - Modern UI framework & bundler
-- **React Router** v6.30 - Client-side routing
-- **Axios** v1.7 - HTTP client for API calls
-- **TailwindCSS** v3.4 - Utility-first CSS framework
-- **Framer Motion** v10.18 - Animation library
-- **React Hot Toast** v2.4 - Toast notifications
-- **Zod** v3.22 - Schema validation
+- **Framework**: React 18.3
+- **Build Tool**: Vite 6.0
+- **Routing**: react-router-dom v6.30
+- **HTTP Client**: Axios v1.7
+- **Animation**: framer-motion v10.18
+- **Styling**: TailwindCSS v3.4
+- **State Management**: React Context API
+- **Form Validation**: Zod v3.22
+- **Notifications**: react-hot-toast v2.4
+- **Icons**: lucide-react v0.475, react-icons v4.12
+- **Charts**: recharts v2.15
 
 ### Backend
 
-- **Laravel** 8+ - PHP web framework
-- **Laravel Sanctum** - API token authentication
-- **smalot/pdfparser** v2.12.3 - PDF text extraction
-- **Groq API** - LLaMA-3.1 & Mixtral LLM models
-- **ZipArchive** (PHP native) - SCORM package creation
-- **MySQL/PostgreSQL** - Database
+- **Framework**: Laravel
+- **Authentication**: Laravel Sanctum
+- **Database**: MySQL/PostgreSQL
+- **API**: RESTful API endpoints
 
-## 🚀 Installation
-
-### Prerequisites
-
-- **Node.js** 16+ and npm
-- **PHP** 8.0+
-- **Composer**
-- **MySQL** 5.7+ or **PostgreSQL** 10+
-- **Groq API Key** (free at https://console.groq.com)
-
-### Backend Setup
-
-1. Navigate to backend:
-
-```bash
-cd BackEnd
-```
-
-2. Install dependencies:
-
-```bash
-composer install
-```
-
-3. Create `.env` file:
-
-```bash
-cp .env.example .env
-```
-
-4. Configure `.env`:
-
-```env
-APP_NAME="2PI Dashboard"
-APP_ENV=local
-APP_KEY=
-APP_DEBUG=true
-
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=2pi_dashboard
-DB_USERNAME=root
-DB_PASSWORD=
-
-GROQ_API_KEY=your_groq_api_key_here
-GROQ_MODEL=mixtral-8x7b-32768
-
-SANCTUM_STATEFUL_DOMAINS=localhost:5173
-
-MAIL_FROM_ADDRESS=support@2pidashboard.com
-MAIL_FROM_NAME="2PI Dashboard"
-```
-
-5. Generate application key:
-
-```bash
-php artisan key:generate
-```
-
-6. Run migrations:
-
-```bash
-php artisan migrate
-```
-
-7. Create storage directories:
-
-```bash
-mkdir -p storage/app/temp storage/app/pdfs
-chmod 755 storage/app/temp storage/app/pdfs
-```
-
-8. Start server:
-
-```bash
-php artisan serve --host=127.0.0.1 --port=8000
-```
+## Installation
 
 ### Frontend Setup
 
-1. Navigate to frontend:
+1. Navigate to the frontend directory:
 
-```bash
-cd FrontEnd
-```
+   ```
+   cd dashboard_adv
+   ```
 
 2. Install dependencies:
-
-```bash
-npm install
-```
-
-3. Create `.env`:
-
-```bash
-cp .env.example .env
-```
-
-4. Configure `.env`:
-
-```env
-VITE_API_URL=http://localhost:8000/api
-VITE_APP_NAME=2PI Dashboard
-```
-
-5. Start dev server:
-
-```bash
-npm run dev
-```
-
-Access at **http://localhost:5173**
-
-## 📚 API Endpoints
-
-### Authentication
-
-```
-POST   /api/register              # Register new user
-POST   /api/login                 # User login
-POST   /api/logout                # User logout
-GET    /api/user                  # Get current user (requires auth)
-PUT    /api/profile               # Update profile (requires auth)
-```
-
-### Quiz Management
-
-```
-POST   /api/game                  # Create quiz
-GET    /api/select                # Get all quizzes
-GET    /api/lastGames             # Get recent quizzes
-GET    /api/getGameById           # Get quiz by ID
-DELETE /api/delete                # Delete quiz
-```
-
-### AI Question Generation
-
-```
-POST   /api/generate-questions    # Generate with AI
-  Body: {
-    course, topic, gameNumber, numLevels,
-    level_types, ai_prompt,
-    pdf_text (optional), links (optional)
-  }
-```
-
-### Attachment Processing
-
-```
-POST   /api/attachments/process   # Upload PDF & links
-  FormData: { pdf (file), links[] (array) }
-  Returns: { attachment_id, pdf_text, links }
-
-POST   /api/attachments/retrieve  # Retrieve attachment
-  Body: { attachment_id }
-```
-
-### SCORM Export
-
-```
-POST   /api/export-quiz-zip       # Export as SCORM
-  Body: { course, topic, gameNumber, numLevels, levels }
-  Returns: scorm_quiz_YYYY-MM-DD_HH-MM-SS.zip
-```
-
-## 🔄 Workflow: AI Quiz Generation with PDF/Links
-
-### Step 1: Process Attachments
-
-```
-Upload PDF + Links
-       ↓
-POST /api/attachments/process
-       ↓
-Backend: Parse PDF, validate URLs
-       ↓
-Response: { attachment_id, pdf_text, links }
-```
-
-### Step 2: Generate with Context
-
-```
-PDF content + Links ready
-       ↓
-POST /api/generate-questions
-  { ai_prompt, pdf_text, links }
-       ↓
-Backend: Enrich prompt with PDF & links
-       ↓
-Groq API: Generate contextual questions
-       ↓
-Response: Quiz with levels
-```
-
-### Step 3: Export as SCORM
-
-```
-User clicks Export
-       ↓
-POST /api/export-quiz-zip
-       ↓
-Backend: Create imsmanifest.xml, html, js, css
-       ↓
-Create ZIP archive
-       ↓
-Download: scorm_quiz_YYYY-MM-DD_HH-MM-SS.zip
-```
-
-## 📄 SCORM Package Structure
-
-```
-scorm_quiz_2026-02-27_14-35-22.zip
-├── imsmanifest.xml          # SCORM manifest (required)
-├── index.html               # Quiz entry point
-├── css/style.css           # Styling
-├── js/app.js               # Logic & SCORM API
-├── content/questions.json   # Quiz data
-└── README.txt              # Documentation
-```
-
-**Compatible with:** Moodle, Canvas, Blackboard, D2L, Desire2Learn
-
-## 🔐 Environment Variables
-
-### Backend Required
-
-| Variable        | Description         | Example              |
-| --------------- | ------------------- | -------------------- |
-| `GROQ_API_KEY`  | Groq API key (free) | `gsk_...`            |
-| `GROQ_MODEL`    | LLM model           | `mixtral-8x7b-32768` |
-| `DB_CONNECTION` | Database type       | `mysql`              |
-| `DB_DATABASE`   | Database name       | `2pi_dashboard`      |
-| `DB_USERNAME`   | DB user             | `root`               |
-| `DB_PASSWORD`   | DB password         |                      |
-
-### Frontend Required
-
-| Variable       | Description     | Example                     |
-| -------------- | --------------- | --------------------------- |
-| `VITE_API_URL` | Backend API URL | `http://localhost:8000/api` |
-
-## 🧪 Testing
-
-### Test AI Generation
-
-1. Create test PDF with math content
-2. Use AIQuestionGenerator:
-   - Upload PDF
-   - Add reference links
-   - Click "Generate"
-3. Verify questions reference PDF content
-
-### Test SCORM Export
-
-1. Generate quiz with AI
-2. Click "Export SCORM"
-3. Extract ZIP and verify structure:
-   ```bash
-   unzip scorm_quiz_*.zip
-   ls -la
+   
    ```
-4. Import into Moodle/Canvas
+   npm install
+   ```
 
-## 📖 Usage Guide
+3. Create a `.env` file based on `.env.example` and configure the API URL:
 
-### Creating AI-Powered Quiz
+   ```
+   VITE_API_URL=http://localhost:8000/api
+   ```
 
-1. **Go to Generator** → Click "Create Quiz"
-2. **Upload PDF** (optional) → Attach document
-3. **Add Links** (optional) → Include URLs
-4. **Enter Prompt** → Describe questions:
-   - "Create 3 levels of probability questions"
-   - "Focus on word problems"
-5. **Configure** → Select 1-4 levels
-6. **Generate** → AI creates questions
-7. **Review** → Edit if needed
-8. **Save** → Store quiz
+4. Start the development server:
+   ```
+   npm run dev
+   ```
 
-### Export for LMS
+### Backend Setup
 
-1. **Select Quiz**
-2. **Click Export** → "Export as SCORM"
-3. **Download** → `scorm_quiz_*.zip`
-4. **Import into LMS** → Upload to Moodle/Canvas
-5. **Assign** → Make available to students
+1. Navigate to the backend directory:
 
-## 🐛 Troubleshooting
+   ```
+   cd 2pi_Dashboard_BackEnd
+   ```
 
-### PDF Not Processing
+2. Install PHP dependencies:
 
-- Verify PDF is text-based (not image scan)
-- File size < 5MB
-- Check `storage/app/pdfs/` is writable
+   ```
+   composer install
+   ```
 
-### Generic Questions
+3. Create a `.env` file based on `.env.example` and configure your database:
 
-- Use specific AI prompts
-- Upload relevant PDF content
-- Include reference links
-- Specify difficulty level
+   ```
+   DB_CONNECTION=mysql
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_DATABASE=your_database_name
+   DB_USERNAME=your_database_username
+   DB_PASSWORD=your_database_password
+   ```
 
-### SCORM Export Fails
+4. Generate application key:
 
-- Verify `storage/app/temp/` exists
-- Check: `tail -f storage/logs/laravel.log`
-- Ensure disk space available
+   ```
+   php artisan key:generate
+   ```
 
-### Groq API Errors
+5. Run database migrations:
 
-- Verify `GROQ_API_KEY` is correct
-- Check API quota at https://console.groq.com
-- Review rate limits
+   ```
+   php artisan migrate
+   ```
 
-## 📝 Contributing
+6. Start the development server:
+   ```
+   php artisan serve
+   ```
 
-1. Fork repository
-2. Create branch: `git checkout -b feature/my-feature`
-3. Commit: `git commit -m 'Add feature'`
-4. Push: `git push origin feature/my-feature`
-5. Pull Request
+## Usage
 
-## 📄 License
+### Teacher Dashboard
 
-MIT License - see [LICENSE](LICENSE) file
+1. **Registration/Login**: Create an account or log in to access the dashboard
+2. **Create Quiz**:
+   - Enter course name, topic, and game number
+   - Select number of levels (1-4)
+   - Configure each level with questions and answers
+   - Choose between "box" and "balloon" question types
+3. **Preview Quiz**: Review the quiz before publishing
+4. **Manage Quizzes**: View, edit, or delete existing quizzes
+5. **Profile Settings**: Update profile information and preferences
 
-## 👥 Authors
+### API Endpoints
 
-**Development Team** - 2PI Project
+#### Authentication
 
-## 🔗 Resources
+- `POST /api/register` - Register a new user
+- `POST /api/login` - User login
+- `POST /api/logout` - User logout (requires authentication)
+- `GET /api/user` - Get current user info (requires authentication)
+- `PUT /api/profile` - Update user profile (requires authentication)
+- `POST /api/forgot-password` - Request password reset
+- `POST /api/reset-password` - Reset password with token
 
-- [Groq API](https://console.groq.com/docs)
-- [Laravel](https://laravel.com/docs)
-- [React](https://react.dev)
-- [SCORM 1.2](https://www.adlnet.gov/scorm)
+#### Games/Quizzes
+
+- `POST /api/game` - Create a new game
+- `GET /api/select` - Get all games
+- `GET /api/lastGames` - Get recently created games
+- `DELETE /api/delete` - Delete a game
+- `GET /api/getGameById` - Get a specific game by ID
+
+#### Notifications
+
+- `GET /api/notifications` - Get user notifications (requires authentication)
+- `POST /api/notifications` - Create a notification (requires authentication)
+- `PUT /api/notifications/{id}/read` - Mark notification as read (requires authentication)
+- `PUT /api/notifications/read-all` - Mark all notifications as read (requires authentication)
+- `DELETE /api/notifications/{id}` - Delete a notification (requires authentication)
+- `DELETE /api/notifications` - Delete all notifications (requires authentication)
+
+## Data Flow
+
+1. **Authentication Flow:**
+
+   - User enters credentials in Login component
+   - Credentials passed to AuthContext login method
+   - API request made using Axios
+   - On success, token and user data stored in localStorage
+   - User redirected to Dashboard
+
+2. **Quiz Creation Flow:**
+
+   - User navigates to Create Quiz
+   - InitialForm collects basic quiz information
+   - LevelForm used to create multiple quiz levels
+   - Preview displays finalized quiz
+   - Quiz data sent to backend via API call
+   - On success, quiz added to user's quizzes
+
+3. **Quiz Management Flow:**
+
+   - Dashboard/Games components fetch quizzes from backend
+   - User can view, edit, or delete quizzes
+   - Changes persisted to backend via API
+
+4. **User Settings Flow:**
+   - Settings component fetches current user data
+   - User updates profile information or password
+   - Changes sent to backend via API
+   - On success, user data updated in AuthContext
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit your changes: `git commit -m 'Add some feature'`
+4. Push to the branch: `git push origin feature-name`
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+#

@@ -18,6 +18,7 @@ import { useNotifications } from "../context/NotificationContext";
 import toast from "react-hot-toast";
 import useNotificationToast from "../hooks/useNotificationToast";
 import axios from "axios";
+import { api } from "../utils/api"; // authenticated axios instance
 import { useLanguage } from "../hooks/useLanguage";
 
 function Preview({ data, onDataChange, onCreateNew }) {
@@ -55,8 +56,9 @@ function Preview({ data, onDataChange, onCreateNew }) {
   };
 
   const handleQuestionChange = (levelIndex, questionIndex, field, value) => {
+    //handleQuestionChange(index, 0,"question",e.target.value)
     const newLevels = [...editedData.levels];
-    const level = newLevels[levelIndex];
+    const level = newLevels[levelIndex]; // here i'm targeting the level
 
     if (level.level_type === "balloon") {
       if (field === "question") {
@@ -92,7 +94,7 @@ function Preview({ data, onDataChange, onCreateNew }) {
     }
 
     // Supprimer la question
-    level.questions.splice(questionIndex, 1);
+    level.questions.splice(questionIndex, 1); // here i'm targeting the question to delete delate 1 question with index questionIndex
 
     setEditedData((prev) => ({
       ...prev,
@@ -148,36 +150,40 @@ function Preview({ data, onDataChange, onCreateNew }) {
 
   const handleExportJSON = async () => {
     try {
-      const apiUrl = import.meta.env.VITE_API_URL;
-      const token =
-        localStorage.getItem("token") || sessionStorage.getItem("token");
+      const user = JSON.parse(localStorage.getItem("user"));
+      const userId = user?.id;
+      const payload = { ...editedData, game_id: isSent, user_id: userId };
 
-      const response = await axios.post(
-        `${apiUrl}export-quiz-zip`,
-        editedData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          responseType: "blob",
+      const response = await api.post(`/export-quiz-zip`, payload, {
+        responseType: "blob",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+      });
 
+      // download the zip file
       const blob = new Blob([response.data], { type: "application/zip" });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
+      const ts = new Date().toISOString().split(".")[0].replace(/:/g, "-");
       link.href = url;
-      link.download = `quiz_${editedData.course}_${editedData.topic}_${Date.now()}.zip`;
+      link.setAttribute("download", `scorm_quiz_${ts}.zip`);
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      link.remove();
 
-      notification.success("📦 Quiz exported as ZIP!");
+      notification.success(t("quiz_exported_successfully") || "Quiz exported");
     } catch (error) {
-      console.error("❌ Export error:", error);
-      notification.error("Failed to export quiz");
+      addNotification(
+        t("preview.exportError") || "Export Error",
+        `${t("course_name") || "Course"}: ${editedData.course} - ${
+          t("preview.exportErrorMessage") ||
+          "An error occurred while exporting the quiz"
+        }`,
+        "error",
+      );
+      notification.error(t("failed_to_export_quiz") || "Failed to export quiz");
+      console.error("Export error", error);
     }
   };
 
@@ -213,7 +219,7 @@ function Preview({ data, onDataChange, onCreateNew }) {
         </div>
         <div className="flex gap-3">
           <motion.button
-            onClick={handleExportJSON}
+            onClick={handleExportJSON} // =====
             className="btn-secondary flex items-center justify-center gap-2 px-4 py-2"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -223,7 +229,7 @@ function Preview({ data, onDataChange, onCreateNew }) {
           </motion.button>
 
           <motion.button
-            onClick={handleCreateNew}
+            onClick={handleCreateNew} // =====
             className="btn-primary flex items-center justify-center gap-2 px-4 py-2"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -232,7 +238,7 @@ function Preview({ data, onDataChange, onCreateNew }) {
             {t("create_new_quiz")}
           </motion.button>
           <motion.button
-            onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
+            onClick={() => (isEditing ? handleSave() : setIsEditing(true))} // =====
             className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ${
               isEditing
                 ? "bg-yellow-main text-gray-900 hover:bg-yellow-main/80"
@@ -301,7 +307,7 @@ function Preview({ data, onDataChange, onCreateNew }) {
               <input
                 type="text"
                 value={editedData.course}
-                onChange={(e) => handleInputChange("course", e.target.value)}
+                onChange={(e) => handleInputChange("course", e.target.value)} // =====
                 className="input-field mt-1"
               />
             ) : (
@@ -322,7 +328,7 @@ function Preview({ data, onDataChange, onCreateNew }) {
               <input
                 type="text"
                 value={editedData.topic}
-                onChange={(e) => handleInputChange("topic", e.target.value)}
+                onChange={(e) => handleInputChange("topic", e.target.value)} // =====
                 className="input-field mt-1"
               />
             ) : (
@@ -345,7 +351,7 @@ function Preview({ data, onDataChange, onCreateNew }) {
                 value={editedData.gameNumber}
                 onChange={(e) =>
                   handleInputChange("gameNumber", e.target.value)
-                }
+                } // =====
                 className="input-field mt-1"
               />
             ) : (
@@ -424,6 +430,7 @@ function Preview({ data, onDataChange, onCreateNew }) {
                       value={level.question}
                       onChange={(e) =>
                         handleQuestionChange(
+                          // =====
                           index,
                           0,
                           "question",
@@ -496,7 +503,7 @@ function Preview({ data, onDataChange, onCreateNew }) {
                         </button>
                         {isEditing && (
                           <button
-                            onClick={() => handleDeleteAnswer(index, aIndex)}
+                            onClick={() => handleDeleteAnswer(index, aIndex)} // =====
                             className="ml-2 p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                             title={t("delete_option") || "Delete option"}
                           >
