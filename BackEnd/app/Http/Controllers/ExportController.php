@@ -36,7 +36,11 @@ class ExportController extends Controller
             }
 
             // Add imsmanifest.xml
-            $zip->addFromString('imsmanifest.xml', $this->getManifest($scormTitle));
+            // $zip->addFromString('imsmanifest.xml', $this->getManifest($scormTitle));
+            $zip->addFromString(
+                 'imsmanifest.xml',
+                $this->getManifest($scormTitle, $quizData['levels'])
+          );
             \Log::info('✅ manifest added');
 
             // Add index.html
@@ -73,9 +77,41 @@ class ExportController extends Controller
         }
     }
 
-    private function getManifest($title)
+    private function getManifest($title,$levels)
     {
         $id = "quiz_" . md5($title);
+        $items="";
+        $resources="";
+        $levelsXml = "";
+
+        foreach($levels as $index=>$level){
+       $itemID="item_".($index+1);
+       $resId="res_".($index+1);
+
+       $items.="
+       <item identifier=\"{$itemID}\" identifierref=\"{$resId}\">
+       <title>Level ".($index+1)."</title>
+       </item>
+       ";
+
+       $resources.="
+       <resource identifier=\"{$resId}\" type=\"webcontent\">
+        <file href=\"index.html\"/>
+       </resource>
+         ";
+
+           $levelsXml .= "<level number=\"" . ($index+1) . "\">";
+
+        if(isset($level['questions'])){
+            foreach($level['questions'] as $q){
+                $question = htmlspecialchars($q['question'] ?? '');
+                $levelsXml .= "<question>{$question}</question>";
+            }
+        }
+
+        $levelsXml .= "</level>";
+
+ }
         return <<<XML
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest identifier="{$id}" version="1.0" xmlns="http://www.imsproject.org/xsd/imscp_v1p1">
@@ -86,15 +122,17 @@ class ExportController extends Controller
     <organizations default="org1">
         <organization identifier="org1">
             <title>{$title}</title>
-            <item identifier="item1" identifierref="res1">
+            <!-- <item identifier="item1" identifierref="res1">
                 <title>{$title}</title>
-            </item>
+            </item> -->
+            {$items}
         </organization>
     </organizations>
     <resources>
-        <resource identifier="res1" type="webcontent">
+        <!-- <resource identifier="res1" type="webcontent">
             <file href="index.html"/>
-        </resource>
+        </resource> -->
+        {$resources}
     </resources>
 </manifest>
 XML;

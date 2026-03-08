@@ -1,0 +1,9 @@
+
+POST http://localhost:8000/localhost:8000/api/extract-file
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer 27|IUsyrPR0Y1TibKFmF6WUVsR1DRtQS71kS5Ivw2iN61111879
+
+{
+ "url": "https://www.youtube.com/watch?v=VIDEO_ID"
+}

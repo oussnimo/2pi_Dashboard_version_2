@@ -10,115 +10,135 @@ use App\Models\BalloonType;
 use App\Models\BalloonAnswer;
 use App\Models\Notification;
 use Illuminate\Support\Facades\DB;
-// use Illuminate\Support\Facades\Log;
 
 class GameController extends Controller
 {
     public function storeGame(Request $request)
     {
         $request->validate([
-            'course' => 'required|string',
-            'topic' => 'required|string',
+            'course'     => 'required|string|max:255',
+            'topic'      => 'required|string|max:255',
             'gameNumber' => 'required|integer',
-            'numLevels' => 'required|integer',
-            'levels' => 'required|array',
-            'user_id' => 'required|integer',
-            'game_id' => 'nullable|integer',
+            'numLevels'  => 'required|integer',
+            'levels'     => 'required|array',
+            'user_id'    => 'required|integer|exists:users,id',
+            'game_id'    => 'nullable|integer|exists:games,game_id',
         ]);
 
         DB::beginTransaction();
         try {
-            $gameId = $request->input('game_id');
-            $userId = $request->input('user_id');
+            $gameId = $request->game_id;
+            $userId = $request->user_id;
+            $isUpdate = !is_null($gameId);
 
-            if ($gameId) {
-                // Update existing game
-                $game = Game::where('game_id', $gameId)->firstOrFail();
+            if ($isUpdate) {
+                $game = Game::where('game_id', $gameId)->where('user_id', $userId)->firstOrFail();
                 $game->update([
-                    'course' => $request->course,
-                    'topic' => $request->topic,
-                    'game_number' => $request->gameNumber,
+                    'course'           => $request->course,
+                    'topic'            => $request->topic,
+                    'game_number'      => $request->gameNumber,
                     'number_of_levels' => $request->numLevels,
-                    'user_id' => $userId,
                 ]);
-
-                // Delete existing levels and related data
+                // Cascade delete handled by DB foreign keys (recommended)
+                // or manually:
                 Level::where('game_id', $game->game_id)->delete();
-                
-                // Create notification for game update
-                Notification::create([
-                    'user_id' => $userId,
-                    'type' => 'info',
-                    'title' => 'Game Updated',
-                    'message' => "Your game '{$request->topic}' has been successfully updated.",
-                    'read' => false
-                ]);
             } else {
-                // Create new game
                 $game = Game::create([
-                    'course' => $request->course,
-                    'topic' => $request->topic,
-                    'game_number' => $request->gameNumber,
+                    'course'           => $request->course,
+                    'topic'            => $request->topic,
+                    'game_number'      => $request->gameNumber,
                     'number_of_levels' => $request->numLevels,
-                    'user_id' => $userId,
-                ]);
-                
-                // Create notification for new game
-                Notification::create([
-                    'user_id' => $userId,
-                    'type' => 'success',
-                    'title' => 'New Game Created',
-                    'message' => "You have successfully created a new math game '{$request->topic}'.",
-                    'read' => false
+                    'user_id'          => $userId,
                 ]);
             }
 
-            // Debugging: Log the game_id
-            // Log::info('Game ID after creation/update:', ['game_id' => $game->game_id]);
+            // ✅ Batch insert levels
+            $levelsToInsert = array_map(fn($ld) => [
+                'game_id'      => $game->game_id,
+                'level_number' => $ld['level_number'],
+                'level_type'   => $ld['level_type'],
+                'created_at'   => now(),
+                'updated_at'   => now(),
+            ], $request->levels);
+
+            Level::insert($levelsToInsert);
+
+            // Reload levels with IDs
+            $savedLevels = Level::where('game_id', $game->game_id)
+                ->orderBy('level_number')
+                ->get()
+                ->keyBy('level_number');
+
+            $boxRows     = [];
+            $balloonRows = [];
 
             foreach ($request->levels as $levelData) {
-                // Create the level entry
-                $level = Level::create([
-                    'game_id' => $game->game_id,
-                    'level_number' => $levelData['level_number'],
-                    'level_type' => $levelData['level_type'],
-                ]);
+                $level = $savedLevels[$levelData['level_number']];
 
-                if ($levelData['level_type'] === 'box' && isset($levelData['questions'])) {
-                    foreach ($levelData['questions'] as $questionData) {
-                        // Store question and answer in BoxQuestionAnswer
-                        BoxQuestionAnswer::create([
-                            'level_id' => $level->id,
-                            'question_text' => $questionData['text'],
-                            'answer_text' => $questionData['answer'],
-                        ]);
+                if ($levelData['level_type'] === 'box' && !empty($levelData['questions'])) {
+                    foreach ($levelData['questions'] as $q) {
+                        $boxRows[] = [
+                            'level_id'      => $level->level_id,
+                            'question_text' => $q['text'],
+                            'answer_text'   => $q['answer'],
+                            'created_at'    => now(),
+                            'updated_at'    => now(),
+                        ];
                     }
                 }
 
-                if ($levelData['level_type'] === 'balloon' && isset($levelData['question'])) {
-                    // Create BalloonType entry
-                    $balloonType = BalloonType::create([
-                        'level_id' => $level->id,
-                        'question_text' => $levelData['question'],
-                    ]);
-
-                    if (!empty($levelData['answers']) && is_array($levelData['answers'])) {
-                        foreach ($levelData['answers'] as $answerData) {
-                            BalloonAnswer::create([
-                                'balloon_id' => $balloonType->id,
-                                'answer_text' => $answerData['text'],
-                                'is_correct' => $answerData['is_true'],
-                            ]);
-                        }
-                    }
+                if ($levelData['level_type'] === 'balloon' && !empty($levelData['question'])) {
+                    $balloonRows[] = [
+                        'level'   => $level,
+                        'data'    => $levelData,
+                    ];
                 }
             }
 
+            // ✅ Single insert for all box questions
+            if (!empty($boxRows)) {
+                BoxQuestionAnswer::insert($boxRows);
+            }
+
+            // Balloons need IDs so we insert one by one, but batch answers
+            foreach ($balloonRows as $br) {
+                $balloon = BalloonType::create([
+                    'level_id'      => $br['level']->level_id,
+                    'question_text' => $br['data']['question'],
+                ]);
+
+                if (!empty($br['data']['answers'])) {
+                    $answerRows = array_map(fn($a) => [
+                        'balloon_id'  => $balloon->id,
+                        'answer_text' => $a['text'],
+                        'is_correct'  => $a['is_true'],
+                        'created_at'  => now(),
+                        'updated_at'  => now(),
+                    ], $br['data']['answers']);
+
+                    BalloonAnswer::insert($answerRows);
+                }
+            }
+
+            // ✅ Single notification
+            Notification::create([
+                'user_id' => $userId,
+                'type'    => $isUpdate ? 'info' : 'success',
+                'title'   => $isUpdate ? 'Game Updated' : 'New Game Created',
+                'message' => $isUpdate
+                    ? "Your game '{$request->topic}' has been updated."
+                    : "New game '{$request->topic}' created successfully.",
+                'read'    => false,
+            ]);
+
             DB::commit();
-            return response()->json(['message' => 'Game data stored successfully!', 'game_id' => $game->game_id], 200);
+            return response()->json([
+                'message' => 'Game data stored successfully!',
+                'game_id' => $game->game_id
+            ], 200);
+
         } catch (\Exception $e) {
             DB::rollBack();
-            // Log::error('Error storing game data:', ['error' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }

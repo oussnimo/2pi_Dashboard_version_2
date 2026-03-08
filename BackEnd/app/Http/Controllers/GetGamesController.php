@@ -3,142 +3,112 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use App\Models\Game;
-use App\Models\Level;
-use App\Models\BoxQuestionAnswer;
-use App\Models\BalloonType;
-use App\Models\BalloonAnswer;
 
 class GetGamesController extends Controller
 {
-    // Method to get all games
+    // ✅ Get all games for a user — no transaction needed for reads
     public function getGames(Request $request)
     {
-        DB::beginTransaction();
-        try {
-            $userId = $request->input('user_id');
-            if (!$userId) {
-                throw new \Exception('User ID not found');
-            }
-
-            $userExists = DB::table('users')->where('id', $userId)->exists();
-            if (!$userExists) {
-                throw new \Exception('User not found in the database');
-            }
-            $games = Game::where('user_id', $userId)->get();
-
-            DB::commit();
-            return response()->json(['message' => 'Games selected successfully!', 'data' => $games], 200);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
-    // Method to get the last six created games
-    public function getLastCreatedGames(Request $request, $limit = 6)
-    {
-        DB::beginTransaction();
-        try {
-            // Fetch the last created games, ordered by creation date
-            $userId = $request->input('user_id');
-            if (!$userId) {
-                throw new \Exception('User ID not found');
-            }
-            $lastCreatedGames = Game::where('user_id', $userId)->orderBy('created_at', 'desc')->take($limit)->get();
-
-            // Format the data
-            $formattedGames = $lastCreatedGames->map(function ($game) {
-                return [
-                    'quiz_id' => $game->game_id,
-                    'timestamp' => $game->created_at,
-                    'title' => "{$game->course} - {$game->topic} - Game #{$game->game_number}",
-                    'number_of_levels' => $game->number_of_levels,
-                ];
-            });
-
-            DB::commit();
-            return response()->json(['message' => 'Last created games fetched successfully!', 'data' => $formattedGames], 200);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-	
-	public function getGameById(Request $request)
-    {
-        // Validate the request data
-        $data = $request->validate([
-            'game_id' => 'required|integer',
-            'user_id' => 'required|integer',
+        $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
         ]);
 
-        // Find the game by ID
-        $game = Game::find($data['game_id']);
+        $games = Game::where('user_id', $request->user_id)->get();
 
-        // Check if the game exists and belongs to the user
-        if (!$game || $game->user_id != $data['user_id']) {
+        return response()->json([
+            'message' => 'Games selected successfully!',
+            'data' => $games
+        ], 200);
+    }
+
+    // ✅ Get last 6 created games — no transaction, clean map
+    public function getLastCreatedGames(Request $request, $limit = 6)
+    {
+        $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
+        ]);
+
+        $games = Game::where('user_id', $request->user_id)
+            ->orderBy('created_at', 'desc')
+            ->take($limit)
+            ->get(['game_id', 'course', 'topic', 'game_number', 'number_of_levels', 'created_at']);
+
+        $formatted = $games->map(fn($game) => [
+            'quiz_id'         => $game->game_id,
+            'timestamp'       => $game->created_at,
+            'title'           => "{$game->course} - {$game->topic} - Game #{$game->game_number}",
+            'number_of_levels'=> $game->number_of_levels,
+        ]);
+
+        return response()->json([
+            'message' => 'Last created games fetched successfully!',
+            'data' => $formatted
+        ], 200);
+    }
+
+    // ✅ Get game by ID — Eager Loading fixes N+1 queries
+    public function getGameById(Request $request)
+    {
+        $data = $request->validate([
+            'game_id' => 'required|integer|exists:games,game_id',
+            'user_id' => 'required|integer|exists:users,id',
+        ]);
+
+        // ✅ Single query with all relations — no more N+1 !
+        $game = Game::where('game_id', $data['game_id'])
+            ->where('user_id', $data['user_id'])
+            ->with([
+                'levels.boxQuestionAnswer',
+                'levels.balloonType.answers',
+            ])
+            ->first();
+
+        if (!$game) {
             return response()->json([
                 'message' => 'Game and user relation validation failed.',
             ], 400);
         }
 
-        // Fetch all levels for the game
-        $levels = Level::where('game_id', $game->game_id)->get();
+        $levels = $game->levels->map(function ($level) {
+            $levelData = [
+                'level_number' => $level->level_number,
+                'level_type'   => $level->level_type,
+                'level_stats'  => [
+                    'coins'      => 0,
+                    'lifes'      => 5,
+                    'mistakes'   => 0,
+                    'stars'      => 1,
+                    'time_spent' => 0,
+                ],
+            ];
 
-        // Prepare the response data
-        $responseData = [
-            'course' => $game->course,
-            'topic' => $game->topic,
-            'gameNumber' => $game->game_number,
-            'numLevels' => $game->number_of_levels,
-            'levels' => $levels->map(function ($level) {
-                $levelData = [
-                    'level_number' => $level->level_number,
-                    'level_stats' => [
-                        'coins' => 0,
-                        'lifes' => 5,
-                        'mistakes' => 0,
-                        'stars' => 1,
-                        'time_spent' => 0,
-                    ],
-                    'level_type' => $level->level_type,
-                ];
+            if ($level->level_type === 'box') {
+                $levelData['questions'] = $level->boxQuestionAnswer->map(fn($q) => [
+                    'text'   => $q->question_text,
+                    'answer' => $q->answer_text,
+                ])->toArray();
+            } elseif ($level->level_type === 'balloon') {
+                $balloon = $level->balloonType->first(); // hasMany mais on prend le premier
+                $levelData['question'] = $balloon?->question_text;
+                $levelData['answers']  = $balloon
+                    ? $balloon->answers->map(fn($a) => [
+                        'text'    => $a->answer_text,
+                        'is_true' => $a->is_correct,
+                    ])->toArray()
+                    : [];
+            }
 
-                // Fetch questions and answers based on level type
-                if ($level->level_type === 'box') {
-                    $boxQuestions = BoxQuestionAnswer::where('level_id', $level->level_id)->get();
-                    $levelData['questions'] = $boxQuestions->map(function ($question) {
-                        return [
-                            'text' => $question->question_text,
-                            'answer' => $question->answer_text,
-                        ];
-                    })->toArray(); // Convert collection to array
-                } elseif ($level->level_type === 'balloon') {
-                    $balloonType = BalloonType::where('level_id', $level->level_id)->first();
-                    $levelData['question'] = $balloonType ? $balloonType->question_text : null;
-                    $levelData['answers'] = $balloonType ? BalloonAnswer::where('balloon_id', $balloonType->balloon_id)
-                        ->get()
-                        ->map(function ($answer) {
-                            return [
-                                'text' => $answer->answer_text,
-                                'is_true' => $answer->is_correct,
-                            ];
-                        })->toArray() : []; // Convert collection to array
-                }
+            return $levelData;
+        })->toArray();
 
-                return $levelData;
-            })->toArray(), // Convert collection to array
-            'player_info' => [
-                'current_level' => 1,
-                'lives' => 3,
-                'score' => 0,
-            ],
-        ];
-
-        return response()->json($responseData, 200);
+        return response()->json([
+            'course'      => $game->course,
+            'topic'       => $game->topic,
+            'gameNumber'  => $game->game_number,
+            'numLevels'   => $game->number_of_levels,
+            'levels'      => $levels,
+            'player_info' => ['current_level' => 1, 'lives' => 3, 'score' => 0],
+        ], 200);
     }
 }

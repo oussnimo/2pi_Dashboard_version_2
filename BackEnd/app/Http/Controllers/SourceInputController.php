@@ -25,6 +25,9 @@ class SourceInputController extends Controller
     {
         \Log::info('📄 [SourceInput] File extraction request received.');
 
+         // ✅ AJOUTE CETTE LIGNE
+           $startTime = microtime(true);
+
         $request->validate([
             'file' => [
                 'required',
@@ -66,14 +69,28 @@ class SourceInputController extends Controller
                 ], 422);
             }
 
-            \Log::info('✅ [SourceInput] File extracted. Length: ' . strlen($text));
+            // ✅ CALCULE LE TEMPS ÉCOULÉ
+        $elapsedTime = microtime(true) - $startTime;
+        $minDelay = 1.5; // Délai minimum en secondes
+        
+        // ✅ SI c'est trop rapide, on attend
+        if ($elapsedTime < $minDelay) {
+            $sleepTime = ($minDelay - $elapsedTime) * 1000000; // Convertir en microsecondes
+            usleep((int)$sleepTime);
+        }
+        
+        // ✅ TEMPS TOTAL APRÈS DÉLAI
+        $totalTime = microtime(true) - $startTime;
 
-            return response()->json([
-                'success' => true,
-                'text'    => $text,
-                'length'  => strlen($text),
-            ], 200);
+        \Log::info('✅ [SourceInput] File extracted. Length: ' . strlen($text) . ' | Time: ' . round($totalTime, 2) . 's');
 
+        return response()->json([
+            'success' => true,
+            'text'    => $text,
+            'length'  => strlen($text),
+            'processing_time' => round($totalTime, 2) . 's', // ✅ AJOUTE CETTE LIGNE
+        ], 200);
+        
         } catch (\Exception $e) {
             \Log::error('❌ [SourceInput] File extraction error: ' . $e->getMessage());
             return response()->json([
